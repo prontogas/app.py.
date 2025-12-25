@@ -1,7 +1,4 @@
-
-
-        
-  import streamlit as st
+import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import io
@@ -120,7 +117,106 @@ with st.sidebar:
                 if forma_pag == "MISTO / COMBINADO":
                     val_parte_2 = total_est - val_parte_1
                     # Ex: "Din: 20 + Cartão: 85"
-                    texto_pagamento =       
+                    texto_pagamento = f"{tipo_1}: {val_parte_1:.0f} + {tipo_2}: {val_parte_2:.0f}"
+                
+                st.session_state.vendas.append({
+                    "Hora": hora.strftime("%H:%M"),
+                    "Cliente": cliente,
+                    "Produto": produto,
+                    "Qtd": qtd,
+                    "Unitario": preco_unit,
+                    "Total": total_est,
+                    "Lucro": lucro,
+                    "Pagamento": texto_pagamento, # Salva o detalhe combinado
+                    "Local": endereco
+                })
+                st.success(f"Venda Salva! ({texto_pagamento})")
+                st.rerun()
+
+    elif tipo == "Despesa":
+        with st.form("form_despesa", clear_on_submit=True):
+            desc = st.text_input("Descrição")
+            valor = st.number_input("Valor (R$)", min_value=0.0)
+            cat = st.selectbox("Categoria", ["Gasolina", "Alimentação", "Outros"])
+            
+            if st.form_submit_button("SALVAR DESPESA"):
+                hora = datetime.now() - timedelta(hours=3)
+                st.session_state.despesas.append({
+                    "Hora": hora.strftime("%H:%M"),
+                    "Descrição": desc,
+                    "Valor": valor,
+                    "Categoria": cat
+                })
+                st.success("Gasto Salvo!")
+                st.rerun()
+
+    # --- ADMIN ---
+    st.markdown("---")
+    st.header("🔐 Admin")
+    modo_admin = st.checkbox("Ativar Modo de Exclusão")
+    senha_ok = False
+    if modo_admin:
+        senha = st.text_input("Senha", type="password")
+        if senha == SENHA_ADMIN:
+            senha_ok = True
+            st.success("Liberado!")
+        elif senha != "":
+            st.error("Senha Incorreta")
+
+# --- PAINEL PRINCIPAL ---
+df_v = pd.DataFrame(st.session_state.vendas)
+df_d = pd.DataFrame(st.session_state.despesas)
+
+fat = df_v["Total"].sum() if not df_v.empty else 0.0
+gastos = df_d["Valor"].sum() if not df_d.empty else 0.0
+lucro = (df_v["Lucro"].sum() if not df_v.empty else 0.0) - gastos
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Faturamento", f"R$ {fat:.2f}")
+c2.metric("Gastos", f"R$ {gastos:.2f}")
+c3.metric("Lucro Líquido", f"R$ {lucro:.2f}")
+
+st.markdown("---")
+
+col_v, col_d = st.columns([2,1])
+
+with col_v:
+    st.subheader("📋 Vendas")
+    if not df_v.empty:
+        # Mostra o pagamento detalhado
+        st.dataframe(df_v[["Hora", "Cliente", "Produto", "Total", "Pagamento"]], use_container_width=True)
+        
+        if senha_ok:
+            st.warning("⚠️ Excluir Venda")
+            id_apagar = st.number_input("Linha para apagar", min_value=0, max_value=len(df_v)-1, step=1)
+            if st.button("🗑️ APAGAR VENDA"):
+                st.session_state.vendas.pop(id_apagar)
+                st.rerun()
+    else:
+        st.info("Nenhuma venda.")
+
+with col_d:
+    st.subheader("💸 Despesas")
+    if not df_d.empty:
+        st.dataframe(df_d, use_container_width=True)
+        if senha_ok:
+            st.warning("⚠️ Excluir Despesa")
+            id_d_apagar = st.number_input("Linha Despesa", min_value=0, max_value=len(df_d)-1, step=1, key="del_d")
+            if st.button("🗑️ APAGAR DESPESA"):
+                st.session_state.despesas.pop(id_d_apagar)
+                st.rerun()
+
+# IA
+if not df_v.empty:
+    st.markdown("---")
+    st.header("🧠 Análise")
+    txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
+    st.text_area("Copie para a IA:", value=txt)
+
+        
+
+        
+                    
                     
                 
       
