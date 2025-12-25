@@ -214,8 +214,12 @@ if not df_v.empty:
     st.header("🧠 Análise")
     txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
     st.text_area("Copie para a IA:", value=txt)
-       
+
      
+          
+                   
+
+
 
 
 
