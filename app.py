@@ -149,50 +149,49 @@ with st.sidebar:
                 })
                 st.rerun()
 
-    # --- ADMIN ---
+    # --- ADMIN (Área do Dono) ---
     st.markdown("---")
     st.header("🔐 Admin")
     modo_admin = st.checkbox("Área do Dono")
     senha_ok = False
+    
     if modo_admin:
         senha = st.text_input("Senha", type="password")
         if senha == SENHA_ADMIN:
             senha_ok = True
             st.success("Acesso Liberado!")
             
-            # --- CÁLCULO DETALHADO POR FORMA DE PAGAMENTO ---
-            st.markdown("### 💵 Fechamento de Caixa")
+            # --- AQUI ESTÁ O SEGREDO QUE ESTAVA FALTANDO ---
+            st.markdown("### 💵 Fechamento Detalhado")
             
-            # Dicionário para somar
+            # Somar tudo
             resumo_pag = {"Dinheiro": 0.0, "Pix": 0.0, "Cartão": 0.0, "Fiado": 0.0}
             
-            # O Grande Loop que lê os textos misturados
             for venda in st.session_state.vendas:
                 pag_texto = venda["Pagamento"]
                 total_venda = venda["Total"]
                 
-                if "|" in pag_texto: # Se for misto (Ex: "Dinheiro: 50 | Pix: 55")
+                if "|" in pag_texto: # Se for misto
                     partes = pag_texto.split("|")
                     for p in partes:
                         try:
-                            tipo, valor = p.split(":")
-                            tipo = tipo.strip() # Remove espaços
-                            valor = float(valor)
-                            if tipo in resumo_pag:
-                                resumo_pag[tipo] += valor
+                            tipo_p, valor_p = p.split(":")
+                            tipo_p = tipo_p.strip()
+                            valor_p = float(valor_p)
+                            if tipo_p in resumo_pag:
+                                resumo_pag[tipo_p] += valor_p
                         except:
                             pass
-                else: # Se for simples (Ex: "Dinheiro")
+                else: # Se for simples
                     if pag_texto in resumo_pag:
                         resumo_pag[pag_texto] += total_venda
 
-            # Mostrando os Cards Coloridos NA BARRA LATERAL
+            # Mostra na barra lateral
             st.info(f"💵 Dinheiro: R$ {resumo_pag['Dinheiro']:.2f}")
             st.info(f"🏦 Pix: R$ {resumo_pag['Pix']:.2f}")
             st.info(f"💳 Cartão: R$ {resumo_pag['Cartão']:.2f}")
             st.error(f"📝 Fiado: R$ {resumo_pag['Fiado']:.2f}")
             
-            st.markdown("---")
             st.metric("💎 Lucro Líquido Real", f"R$ {lucro:.2f}")
             st.markdown("---")
 
@@ -230,10 +229,6 @@ with col_d:
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
 
-   
-       
-
-        
    
                 
               
