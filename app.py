@@ -1,13 +1,20 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Configuração da página
-st.set_page_config(page_title="Gerenciador de Vendas & IA", layout="wide")
-st.title("🚀 Painel de Controle de Vendas")
+# --- CONFIGURAÇÃO DE CUSTOS (Quanto você paga no produto) ---
+# Altere os valores abaixo conforme o seu custo real
+CUSTOS_PRODUTOS = {
+    "Gás P13": 75.00,    # Exemplo: Você paga 75
+    "Água 20L": 6.00,    # Exemplo: Você paga 6
+    "Outros": 0.00       # Outros produtos
+}
 
-# Inicializar banco de dados temporário na sessão
+# Configuração da página
+st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
+st.title("🚀 Gestor Pronto Gás & Clientes")
+
+# Inicializar banco de dados na sessão
 if 'vendas' not in st.session_state:
     st.session_state.vendas = []
 if 'despesas' not in st.session_state:
@@ -15,43 +22,57 @@ if 'despesas' not in st.session_state:
 
 # --- BARRA LATERAL (Lançamentos) ---
 with st.sidebar:
-    st.header("📝 Novo Lançamento")
-    tipo = st.radio("O que vamos lançar?", ["Venda", "Despesa"])
+    st.header("📝 Novo Pedido")
+    tipo = st.radio("Tipo de Lançamento", ["Venda", "Despesa"])
 
     if tipo == "Venda":
         with st.form("form_venda"):
-            produto = st.text_input("Produto")
-            valor = st.number_input("Valor (R$)", min_value=0.0, step=1.0)
+            st.markdown("### 👤 Cliente")
+            cliente_nome = st.text_input("Nome do Cliente")
+            cliente_tel = st.text_input("WhatsApp/Telefone")
+            
+            st.markdown("### 🛒 Pedido")
+            # Lista de produtos baseada nos custos configurados
+            produto_selecionado = st.selectbox("Produto", list(CUSTOS_PRODUTOS.keys()))
+            
+            valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, step=1.0, value=110.0 if "Gás" in produto_selecionado else 12.0)
             pagamento = st.selectbox("Forma Pagamento", ["Dinheiro", "Pix", "Cartão", "Fiado"])
             endereco = st.text_input("Endereço/Bairro")
-            obs = st.text_input("Obs (Ex: Cliente novo)")
+            obs = st.text_input("Obs (Ex: Deixar na portaria)")
             
-            submitted = st.form_submit_button("Lançar Venda")
+            submitted = st.form_submit_button("✅ Registrar Venda")
+            
             if submitted:
-                # Ajuste de Fuso Horário (-3h para Brasil)
+                # Ajuste de Horário Brasil (-3h)
                 hora_brasil = datetime.now() - timedelta(hours=3)
+                
+                # Calcular Lucro Automaticamente
+                custo_produto = CUSTOS_PRODUTOS.get(produto_selecionado, 0.00)
+                lucro_venda = valor_venda - custo_produto
                 
                 st.session_state.vendas.append({
                     "Hora": hora_brasil.strftime("%H:%M"),
-                    "Produto": produto,
-                    "Valor": valor,
+                    "Cliente": cliente_nome,
+                    "Telefone": cliente_tel,
+                    "Produto": produto_selecionado,
+                    "Valor Venda": valor_venda,
+                    "Custo": custo_produto,
+                    "Lucro Real": lucro_venda,
                     "Pagamento": pagamento,
                     "Local": endereco,
                     "Obs": obs
                 })
-                st.success("Venda registrada!")
+                st.success(f"Venda para {cliente_nome} registrada! Lucro estimado: R$ {lucro_venda:.2f}")
 
     elif tipo == "Despesa":
         with st.form("form_despesa"):
-            desc_despesa = st.text_input("Descrição da Despesa")
+            desc_despesa = st.text_input("Descrição (Ex: Gasolina)")
             valor_despesa = st.number_input("Valor (R$)", min_value=0.0, step=1.0)
-            categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Fornecedor", "Outros"])
+            categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Pessoal", "Outros"])
             
-            submitted_d = st.form_submit_button("Lançar Despesa")
+            submitted_d = st.form_submit_button("🔴 Registrar Despesa")
             if submitted_d:
-                # Ajuste de Fuso Horário (-3h para Brasil)
                 hora_brasil = datetime.now() - timedelta(hours=3)
-                
                 st.session_state.despesas.append({
                     "Hora": hora_brasil.strftime("%H:%M"),
                     "Descrição": desc_despesa,
@@ -60,72 +81,81 @@ with st.sidebar:
                 })
                 st.success("Despesa registrada!")
 
-# --- ÁREA PRINCIPAL (Visualização) ---
+# --- ÁREA PRINCIPAL (Relatórios) ---
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
-# Converter listas para Tabelas (DataFrames)
+# Converter dados
 df_vendas = pd.DataFrame(st.session_state.vendas)
 df_despesas = pd.DataFrame(st.session_state.despesas)
 
-with col1:
-    st.subheader("💰 Vendas do Dia")
-    if not df_vendas.empty:
-        st.dataframe(df_vendas, use_container_width=True)
-        total_vendas = df_vendas["Valor"].sum()
-        st.metric("Total Bruto", f"R$ {total_vendas:.2f}")
-    else:
-        st.info("Nenhuma venda lançada hoje.")
+# Cálculos Totais
+total_vendas = df_vendas["Valor Venda"].sum() if not df_vendas.empty else 0.0
+total_lucro_produtos = df_vendas["Lucro Real"].sum() if not df_vendas.empty else 0.0
+total_despesas_extras = df_despesas["Valor"].sum() if not df_despesas.empty else 0.0
+lucro_liquido_final = total_lucro_produtos - total_despesas_extras
 
+with col1:
+    st.metric("Faturamento (Bruto)", f"R$ {total_vendas:.2f}")
 with col2:
-    st.subheader("💸 Despesas do Dia")
-    if not df_despesas.empty:
-        st.dataframe(df_despesas, use_container_width=True)
-        total_despesas = df_despesas["Valor"].sum()
-        st.metric("Total Despesas", f"R$ {total_despesas:.2f}")
-    else:
-        st.info("Nenhuma despesa lançada hoje.")
+    st.metric("Despesas do Dia", f"R$ {total_despesas_extras:.2f}")
+with col3:
+    # Mostra o lucro VERDADEIRO (Venda - Custo Produto - Despesas Extras)
+    st.metric("Lucro Líquido Real", f"R$ {lucro_liquido_final:.2f}", delta_color="normal")
 
 st.markdown("---")
 
-# --- A MÁGICA DA IA ---
-st.header("🧠 Análise do Especialista")
+# Tabelas Detalhadas
+tab1, tab2 = st.tabs(["📄 Histórico de Vendas", "📉 Despesas"])
+
+with tab1:
+    if not df_vendas.empty:
+        st.dataframe(df_vendas, use_container_width=True)
+        # Botão para baixar cadastro de clientes
+        csv = df_vendas.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Baixar Planilha do Dia (Excel)", data=csv, file_name="vendas_hoje.csv", mime="text/csv")
+    else:
+        st.info("Nenhuma venda hoje.")
+
+with tab2:
+    if not df_despesas.empty:
+        st.dataframe(df_despesas, use_container_width=True)
+    else:
+        st.info("Sem despesas extras.")
+
+st.markdown("---")
+
+# --- IA ESPECIALISTA ---
+st.header("🧠 Análise Estratégica")
 
 if not df_vendas.empty:
-    lucro = df_vendas["Valor"].sum() - (df_despesas["Valor"].sum() if not df_despesas.empty else 0)
-    
-    # Criar o texto pronto para a IA
     prompt_ia = f"""
-    Aja como meu Especialista em Estratégia de Vendas.
-    Aqui está o resumo do meu dia de hoje:
+    Aja como meu Gerente Comercial. Aqui estão os dados de hoje:
     
-    RESUMO FINANCEIRO:
-    - Faturamento: R$ {df_vendas["Valor"].sum():.2f}
-    - Despesas: R$ {(df_despesas["Valor"].sum() if not df_despesas.empty else 0):.2f}
-    - Lucro Líquido: R$ {lucro:.2f}
+    FINANCEIRO REAL:
+    - Vendeu: R$ {total_vendas:.2f}
+    - Custo Produtos: R$ {total_vendas - total_lucro_produtos:.2f}
+    - Despesas Extras: R$ {total_despesas_extras:.2f}
+    - DINHEIRO NO BOLSO (LUCRO): R$ {lucro_liquido_final:.2f}
     
-    DETALHE DAS VENDAS:
-    {df_vendas.to_string(index=False)}
+    CLIENTES ATENDIDOS HOJE:
+    {df_vendas[['Cliente', 'Telefone', 'Produto', 'Local']].to_string(index=False)}
     
-    DETALHE DAS DESPESAS:
-    {df_despesas.to_string(index=False) if not df_despesas.empty else "Sem despesas"}
-    
-    Por favor, analise esses dados e me dê:
-    1. Uma análise do desempenho hoje (pontos fortes e fracos).
-    2. Identifique padrões no endereço ou forma de pagamento.
-    3. 3 Ações práticas para eu vender mais amanhã.
+    Analise e me diga:
+    1. Meu lucro real está saudável ou as despesas comeram tudo?
+    2. Com base na lista de clientes, quem eu devo fidelizar?
+    3. Qual a estratégia para amanhã?
     """
+    st.text_area("Copie para a IA:", value=prompt_ia, height=250)
 
-    st.text_area("Copie este texto abaixo e envie para sua IA (ChatGPT/Gemini):", value=prompt_ia, height=300)
+         
+           
+
+
+
+
     
-else:
-    st.warning("Lance pelo menos uma venda para gerar a análise.")
-
-            
-         
-         
-
-
+    
 
 
 
