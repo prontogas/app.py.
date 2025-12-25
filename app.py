@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-import io
 
 # --- 🔧 CONFIGURAÇÕES ---
 SENHA_ADMIN = "1234"
@@ -19,18 +18,25 @@ CLIENTES_VIP = {
 }
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás (Total Flex)")
+st.title("🚀 Gestor Pronto Gás (Blindado)")
 
 # Inicializar Sessão
 if 'vendas' not in st.session_state: st.session_state.vendas = []
 if 'despesas' not in st.session_state: st.session_state.despesas = []
 
-# Função de Limpeza
-def limpar_campos():
+# --- 🧹 SISTEMA DE LIMPEZA INTELIGENTE (CORREÇÃO DO ERRO) ---
+# Isso roda ANTES de tudo para garantir que não dê erro
+if 'limpar_agora' in st.session_state and st.session_state.limpar_agora:
+    # Reseta os campos textuais
     st.session_state.temp_cliente = ""
     st.session_state.temp_obs = ""
-    # Resetar valores numéricos se possível
-    # (Streamlit recarrega o script, então o reset visual acontece no rerun)
+    st.session_state.temp_endereco = ""
+    # Reseta os valores numéricos do pagamento misto (se existirem)
+    if 'v1' in st.session_state: st.session_state.v1 = 0.0
+    
+    # Desliga a limpeza e avisa que deu certo
+    st.session_state.limpar_agora = False
+    st.toast("✅ Venda Salva e Campos Limpos!", icon="🎉")
 
 # --- BARRA LATERAL ---
 with st.sidebar:
@@ -57,6 +63,7 @@ with st.sidebar:
     if tipo == "Venda":
         st.markdown("### 👤 Dados")
         
+        # As chaves (keys) permitem que a gente limpe o campo depois
         cliente = st.text_input("Nome do Cliente", key="temp_cliente")
         produto = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()))
         
@@ -71,7 +78,6 @@ with st.sidebar:
         
         total_venda = preco_unit * qtd
         
-        # Mostrador Grande
         st.markdown(f"""
         <div style="padding:10px; background-color:#2e7b53; border-radius:10px; text-align:center; margin-bottom:10px;">
             <h2 style="color:white; margin:0;">Total: R$ {total_venda:.2f}</h2>
@@ -79,9 +85,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
 
         st.markdown("### 💰 Pagamento")
-        # Opções principais
-        modo_pag = st.selectbox("Modo de Pagamento", 
-                                ["Simples (Uma forma)", "COMBINADO (Duas formas)"])
+        modo_pag = st.selectbox("Modo de Pagamento", ["Simples (Uma forma)", "COMBINADO (Duas formas)"])
         
         texto_pagamento = ""
         pode_salvar = True
@@ -90,14 +94,12 @@ with st.sidebar:
             forma = st.selectbox("Forma", ["Dinheiro", "Pix", "Cartão", "Fiado"])
             texto_pagamento = forma
 
-        else: # MODO COMBINADO / MISTO
+        else: # MISTO
             st.info("👇 Configure a divisão:")
             c1, c2 = st.columns(2)
-            
             with c1:
                 metodo1 = st.selectbox("1ª Parte (Entrada)", ["Dinheiro", "Pix", "Cartão"], key="m1")
                 val1 = st.number_input(f"Valor em {metodo1}", min_value=0.0, step=1.0, key="v1")
-            
             with c2:
                 metodo2 = st.selectbox("2ª Parte (Restante)", ["Pix", "Cartão", "Fiado", "Dinheiro"], key="m2")
                 val2 = total_venda - val1
@@ -109,7 +111,6 @@ with st.sidebar:
                     st.write(f"Falta em {metodo2}:")
                     st.markdown(f"#### R$ {val2:.2f}")
             
-            # Monta o texto que vai pro relatório (Ex: "Din: 50 | Pix: 55")
             texto_pagamento = f"{metodo1}: {val1:.0f} | {metodo2}: {val2:.0f}"
 
         endereco = st.text_input("Endereço", key="temp_endereco")
@@ -117,6 +118,7 @@ with st.sidebar:
 
         st.markdown("---")
         
+        # --- BOTÃO FINAL ---
         if st.button("✅ FINALIZAR VENDA", type="primary", use_container_width=True):
             if pode_salvar:
                 hora = datetime.now() - timedelta(hours=3)
@@ -134,9 +136,10 @@ with st.sidebar:
                     "Pagamento": texto_pagamento,
                     "Local": endereco
                 })
-                st.success("Venda registrada!")
-                limpar_campos()
-                st.rerun()
+                
+                # AQUI ESTÁ O SEGREDO: Apenas marcamos para limpar na próxima volta
+                st.session_state.limpar_agora = True 
+                st.rerun() # Recarrega a página
 
     elif tipo == "Despesa":
         with st.form("form_despesa", clear_on_submit=True):
@@ -214,8 +217,17 @@ if not df_v.empty:
     st.header("🧠 Análise")
     txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
     st.text_area("Copie para a IA:", value=txt)
-
      
+       
+          
+
+    
+               
+            
+
+
+
+
           
                    
 
