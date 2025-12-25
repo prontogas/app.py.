@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import io
@@ -58,6 +58,7 @@ with st.sidebar:
 
     if tipo == "Venda":
         with st.form("form_venda", clear_on_submit=True):
+            st.markdown("### 👤 Cliente & Produto")
             cliente = st.text_input("Nome do Cliente")
             if cliente in CLIENTES_VIP:
                 st.caption(f"⭐ VIP! Preço: R$ {CLIENTES_VIP[cliente]:.2f}")
@@ -74,23 +75,17 @@ with st.sidebar:
             qtd = col_q.number_input("Qtd", min_value=1, value=1)
             
             total_est = preco_unit * qtd
-            st.write(f"**Total da Venda: R$ {total_est:.2f}**")
+            st.info(f"Total da Venda: R$ {total_est:.2f}")
+            
             st.markdown("---")
+            st.markdown("### 💰 Pagamento")
             
             # --- LÓGICA DE PAGAMENTO MISTO ---
             forma_pag = st.selectbox("Forma de Pagamento", 
-                                     ["Dinheiro", "Pix", "Cartão", "Fiado", "COMBINADO (Dinheiro + Pix)"])
+                                     ["Dinheiro", "Pix", "Cartão", "Fiado", "MISTO (Dinheiro + Pix)"])
             
-            detalhe_pagamento = forma_pag # O que vai ficar escrito na tabela
-            
-            if forma_pag == "COMBINADO (Dinheiro + Pix)":
-                st.info("Quanto o cliente deu em Dinheiro?")
-                val_dinheiro = st.number_input("Valor em Dinheiro (R$)", min_value=0.0, max_value=float(total_est), step=1.0)
-                val_pix = total_est - val_dinheiro
-                st.write(f"👉 Restante no Pix/Cartão: **R$ {val_pix:.2f}**")
-                
-                # Cria um texto para salvar na tabela ex: "Din: 50.00 / Pix: 55.00"
-                detalhe_pagamento = f"Din: {val_dinheiro:.0f} / Pix: {val_pix:.0f}"
+            st.caption("👇 Preencha abaixo APENAS se escolheu MISTO")
+            val_dinheiro_misto = st.number_input("Valor pago em DINHEIRO:", min_value=0.0, step=1.0)
             
             endereco = st.text_input("Endereço")
             
@@ -98,6 +93,14 @@ with st.sidebar:
                 hora = datetime.now() - timedelta(hours=3)
                 custo = PRODUTOS_PADRAO[produto]["custo"] * qtd
                 lucro = total_est - custo
+                
+                # Define o que vai escrito na tabela
+                texto_pagamento = forma_pag
+                
+                # Se for misto, faz a conta e salva detalhado
+                if forma_pag == "MISTO (Dinheiro + Pix)":
+                    val_pix = total_est - val_dinheiro_misto
+                    texto_pagamento = f"Din: {val_dinheiro_misto:.0f} | Pix: {val_pix:.0f}"
                 
                 st.session_state.vendas.append({
                     "Hora": hora.strftime("%H:%M"),
@@ -107,10 +110,10 @@ with st.sidebar:
                     "Unitario": preco_unit,
                     "Total": total_est,
                     "Lucro": lucro,
-                    "Pagamento": detalhe_pagamento, # Salva o detalhe misto aqui
+                    "Pagamento": texto_pagamento, # Salva o detalhe aqui
                     "Local": endereco
                 })
-                st.success("Venda Salva!")
+                st.success(f"Venda Salva! ({texto_pagamento})")
                 st.rerun()
 
     elif tipo == "Despesa":
@@ -140,6 +143,8 @@ with st.sidebar:
         if senha == SENHA_ADMIN:
             senha_ok = True
             st.success("Liberado!")
+        elif senha != "":
+            st.error("Senha Incorreta")
 
 # --- PAINEL PRINCIPAL ---
 df_v = pd.DataFrame(st.session_state.vendas)
@@ -190,8 +195,11 @@ if not df_v.empty:
     st.header("🧠 Análise")
     txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
     st.text_area("Copie para a IA:", value=txt)
-       
-    
+            
+                    
+  
+
+
            
                 
                     
