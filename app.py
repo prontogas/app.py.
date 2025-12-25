@@ -18,6 +18,25 @@ CLIENTES_VIP = {
 }
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
+
+# --- 🎨 ESTILO DOS BOTÕES GIGANTES ---
+st.markdown("""
+<style>
+    /* Aumenta a altura e a fonte de todos os botões */
+    div.stButton > button {
+        height: 60px;
+        font-size: 24px !important;
+        font-weight: bold;
+    }
+    /* Aumenta também o botão de formulário (Despesa) */
+    div.stForm > div > div > div > button {
+        height: 60px;
+        font-size: 24px !important;
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🚀 Gestor Pronto Gás")
 
 # Inicializar Sessão
@@ -113,8 +132,10 @@ with st.sidebar:
 
         endereco = st.text_input("Endereço", key="temp_endereco")
         obs = st.text_input("Obs", key="temp_obs")
-
-        if st.button("✅ FINALIZAR", type="primary", use_container_width=True):
+        
+        st.markdown("---")
+        # BOTÃO DE VENDA GIGANTE
+        if st.button("✅ FINALIZAR VENDA", type="primary", use_container_width=True):
             if pode_salvar:
                 hora = datetime.now() - timedelta(hours=3)
                 custo = PRODUTOS_PADRAO[produto]["custo"] * qtd
@@ -139,7 +160,9 @@ with st.sidebar:
             desc = st.text_input("Descrição")
             valor = st.number_input("Valor (R$)", min_value=0.0)
             cat = st.selectbox("Categoria", ["Gasolina", "Alimentação", "Outros"])
-            if st.form_submit_button("SALVAR GASTO"):
+            
+            # BOTÃO DE DESPESA GIGANTE
+            if st.form_submit_button("💾 SALVAR GASTO", use_container_width=True):
                 hora = datetime.now() - timedelta(hours=3)
                 st.session_state.despesas.append({
                     "Hora": hora.strftime("%H:%M"),
@@ -161,17 +184,15 @@ with st.sidebar:
             senha_ok = True
             st.success("Acesso Liberado!")
             
-            # --- AQUI ESTÁ O SEGREDO QUE ESTAVA FALTANDO ---
             st.markdown("### 💵 Fechamento Detalhado")
             
-            # Somar tudo
             resumo_pag = {"Dinheiro": 0.0, "Pix": 0.0, "Cartão": 0.0, "Fiado": 0.0}
             
             for venda in st.session_state.vendas:
                 pag_texto = venda["Pagamento"]
                 total_venda = venda["Total"]
                 
-                if "|" in pag_texto: # Se for misto
+                if "|" in pag_texto: 
                     partes = pag_texto.split("|")
                     for p in partes:
                         try:
@@ -182,11 +203,10 @@ with st.sidebar:
                                 resumo_pag[tipo_p] += valor_p
                         except:
                             pass
-                else: # Se for simples
+                else: 
                     if pag_texto in resumo_pag:
                         resumo_pag[pag_texto] += total_venda
 
-            # Mostra na barra lateral
             st.info(f"💵 Dinheiro: R$ {resumo_pag['Dinheiro']:.2f}")
             st.info(f"🏦 Pix: R$ {resumo_pag['Pix']:.2f}")
             st.info(f"💳 Cartão: R$ {resumo_pag['Cartão']:.2f}")
@@ -212,7 +232,8 @@ with col_v:
         if senha_ok:
             st.warning("⚠️ Excluir Venda")
             id_apagar = st.number_input("Linha para apagar", min_value=0, max_value=len(df_v)-1, step=1)
-            if st.button("🗑️ APAGAR VENDA"):
+            # BOTÃO DE APAGAR GIGANTE
+            if st.button("🗑️ APAGAR VENDA", type="primary", use_container_width=True):
                 st.session_state.vendas.pop(id_apagar)
                 st.rerun()
     else:
@@ -225,13 +246,15 @@ with col_d:
         if senha_ok:
             st.warning("⚠️ Excluir Despesa")
             id_d_apagar = st.number_input("Linha Despesa", min_value=0, max_value=len(df_d)-1, step=1, key="del_d")
-            if st.button("🗑️ APAGAR DESPESA"):
+            # BOTÃO DE APAGAR GIGANTE
+            if st.button("🗑️ APAGAR DESPESA", type="primary", use_container_width=True):
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
 
-   
-                
-              
+      
+  
+
+         
             
 
          
