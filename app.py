@@ -1,5 +1,5 @@
 
- import streamlit as st
+   import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -233,9 +233,18 @@ elif not df_v.empty:
     st.markdown("---")
     st.info("🔒 Análise de IA oculta (Requer senha de Admin)")
 
-    
-      
+
+         
         
+
+     
+              
+
+            
+    
+ 
+
+    
       
            
                
