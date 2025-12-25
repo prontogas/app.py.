@@ -2,162 +2,167 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- 🔧 ÁREA DE CONFIGURAÇÃO (MEXA AQUI!) ---
-# Coloque aqui quanto VOCÊ paga no produto (Preço de Custo)
-CUSTOS_PRODUTOS = {
-    "Gás P13": 82.00,     
-    "Água 20L": 4.80,     
-    "Outros": 0.00        
+# --- 🔧 CONFIGURAÇÃO (PREÇOS PADRÃO) ---
+# Aqui definimos o PREÇO SUGERIDO (Padrão) e o CUSTO
+PRODUTOS_PADRAO = {
+    "Gás P13":   {"sugerido": 105.00, "custo": 82.00},
+    "Água 20L":  {"sugerido": 12.00,  "custo": 5.00},
+    "Outros":    {"sugerido": 0.00,   "custo": 0.00}
 }
-# --------------------------------------------
 
-# Configuração da página
-st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás (Com Estoque)")
+# --- 👥 LISTA DE CLIENTES ESPECIAIS (Simulação de Memória) ---
+# Se você digitar esses nomes exatos, o sistema muda o preço sozinho
+CLIENTES_VIP = {
+    "Dona Maria": 100.00, # Ela paga mais barato
+    "Sr. João": 95.00,    # Preço de amigo
+    "Comércio": 90.00     # Preço de atacado
+}
+# -----------------------------------------------------------
 
-# Inicializar banco de dados temporário na sessão
+st.set_page_config(page_title="Gestor Flexível", layout="wide")
+st.title("🚀 Gestor Pronto Gás (Preço Livre)")
+
 if 'vendas' not in st.session_state:
     st.session_state.vendas = []
 if 'despesas' not in st.session_state:
     st.session_state.despesas = []
 
-# --- BARRA LATERAL (Lançamentos) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
     st.header("📝 Novo Lançamento")
-    tipo = st.radio("O que vamos lançar?", ["Venda", "Despesa"])
+    tipo = st.radio("Tipo", ["Venda", "Despesa"])
 
     if tipo == "Venda":
         with st.form("form_venda"):
-            st.markdown("### Detalhes do Pedido")
-            cliente = st.text_input("Nome do Cliente") # <--- CAMPO NOVO
-            produto_selecionado = st.selectbox("Produto", list(CUSTOS_PRODUTOS.keys()))
-            qtd = st.number_input("Quantidade", min_value=1, value=1, step=1) # <--- CAMPO NOVO
+            # 1. Identificação
+            st.markdown("### 👤 Cliente & Produto")
+            cliente = st.text_input("Nome do Cliente")
             
-            st.markdown("### Financeiro")
-            # Atenção: Aqui você coloca o VALOR TOTAL que o cliente pagou
-            valor_venda = st.number_input("Valor TOTAL Recebido (R$)", min_value=0.0, step=1.0, value=105.00)
-            pagamento = st.selectbox("Forma Pagamento", ["Dinheiro", "Pix", "Cartão", "Fiado"])
-            endereco = st.text_input("Endereço/Bairro")
-            obs = st.text_input("Obs (Ex: Cliente novo)")
+            # Se o cliente for VIP, avisa
+            msg_vip = ""
+            if cliente in CLIENTES_VIP:
+                msg_vip = f"⭐ Cliente VIP detectado! Preço sugerido: R$ {CLIENTES_VIP[cliente]:.2f}"
+                st.caption(msg_vip)
+
+            produto_selecionado = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()))
             
-            submitted = st.form_submit_button("Lançar Venda")
+            # 2. Definição de Preço (A MÁGICA ACONTECE AQUI)
+            st.markdown("### 💲 Negociação")
+            
+            # Lógica para decidir qual preço sugerir na tela
+            preco_base = PRODUTOS_PADRAO[produto_selecionado]["sugerido"]
+            if cliente in CLIENTES_VIP and produto_selecionado == "Gás P13":
+                preco_base = CLIENTES_VIP[cliente]
+            
+            # Campo editável do preço unitário
+            preco_unitario_cobrado = st.number_input(
+                "Preço Unitário (Pode alterar)", 
+                value=float(preco_base),
+                step=1.0,
+                format="%.2f"
+            )
+            
+            qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
+            
+            # Cálculo automático do total na tela
+            total_calculado = preco_unitario_cobrado * qtd
+            
+            st.markdown(f"### Total a Receber: **R$ {total_calculado:.2f}**")
+            
+            # Detalhes finais
+            st.markdown("---")
+            pagamento = st.selectbox("Pagamento", ["Dinheiro", "Pix", "Cartão", "Fiado"])
+            endereco = st.text_input("Endereço")
+            obs = st.text_input("Obs")
+            
+            submitted = st.form_submit_button("✅ Lançar Venda")
+            
             if submitted:
-                # Ajuste de Fuso Horário (-3h para Brasil)
                 hora_brasil = datetime.now() - timedelta(hours=3)
                 
-                # CÁLCULOS AUTOMÁTICOS
-                custo_unitario = CUSTOS_PRODUTOS[produto_selecionado]
-                custo_total = custo_unitario * qtd  # Multiplica o custo pela quantidade
-                lucro_venda = valor_venda - custo_total
+                # Pega o custo fixo para calcular lucro certo
+                custo_unitario = PRODUTOS_PADRAO[produto_selecionado]["custo"]
+                custo_total = custo_unitario * qtd
+                lucro_venda = total_calculado - custo_total
                 
                 st.session_state.vendas.append({
                     "Hora": hora_brasil.strftime("%H:%M"),
                     "Cliente": cliente,
                     "Produto": produto_selecionado,
                     "Qtd": qtd,
-                    "Venda": valor_venda,
-                    "Custo": custo_total,
+                    "Unitario": preco_unitario_cobrado,
+                    "Total": total_calculado,
                     "Lucro": lucro_venda,
                     "Pagamento": pagamento,
-                    "Local": endereco,
-                    "Obs": obs
+                    "Local": endereco
                 })
-                st.success(f"Venda registrada! Lucro: R$ {lucro_venda:.2f}")
+                st.success(f"Venda de R$ {total_calculado:.2f} lançada!")
 
     elif tipo == "Despesa":
-        st.info("Lance aqui gastos extras (Gasolina, Almoço, Panfletos)")
+        st.info("Lance seus gastos do dia")
         with st.form("form_despesa"):
-            desc_despesa = st.text_input("Descrição")
-            valor_despesa = st.number_input("Valor (R$)", min_value=0.0, step=1.0)
-            categoria = st.selectbox("Categoria", ["Combustível", "Alimentação", "Veículo", "Outros"])
-            
-            submitted_d = st.form_submit_button("Lançar Despesa")
-            if submitted_d:
-                hora_brasil = datetime.now() - timedelta(hours=3)
+            desc = st.text_input("Descrição")
+            valor = st.number_input("Valor (R$)", min_value=0.0, step=1.0)
+            cat = st.selectbox("Categoria", ["Gasolina", "Alimentação", "Outros"])
+            if st.form_submit_button("Lançar Gasto"):
+                hora = datetime.now() - timedelta(hours=3)
                 st.session_state.despesas.append({
-                    "Hora": hora_brasil.strftime("%H:%M"),
-                    "Descrição": desc_despesa,
-                    "Valor": valor_despesa,
-                    "Categoria": categoria
+                    "Hora": hora.strftime("%H:%M"),
+                    "Descrição": desc,
+                    "Valor": valor,
+                    "Categoria": cat
                 })
-                st.success("Despesa registrada!")
+                st.success("Despesa salva!")
 
-# --- ÁREA PRINCIPAL (Relatórios) ---
-
+# --- PAINEL PRINCIPAL ---
 col1, col2, col3 = st.columns(3)
 
-# Transformar dados em tabelas
-df_vendas = pd.DataFrame(st.session_state.vendas)
-df_despesas = pd.DataFrame(st.session_state.despesas)
+df_v = pd.DataFrame(st.session_state.vendas)
+df_d = pd.DataFrame(st.session_state.despesas)
 
-# Cálculos Totais
-total_faturado = df_vendas["Venda"].sum() if not df_vendas.empty else 0.0
-total_custos_produtos = df_vendas["Custo"].sum() if not df_vendas.empty else 0.0
-total_despesas_extras = df_despesas["Valor"].sum() if not df_despesas.empty else 0.0
+total_fat = df_v["Total"].sum() if not df_v.empty else 0.0
+total_lucro = df_v["Lucro"].sum() if not df_v.empty else 0.0
+total_gastos = df_d["Valor"].sum() if not df_d.empty else 0.0
+liquido = total_lucro - total_gastos
 
-# Lucro Real = (Vendas - Custo dos Produtos) - Despesas Extras
-lucro_liquido = total_faturado - total_custos_produtos - total_despesas_extras
-
-with col1:
-    st.metric("💰 Faturamento (Caixa)", f"R$ {total_faturado:.2f}")
-with col2:
-    st.metric("📉 Custos + Despesas", f"R$ {(total_custos_produtos + total_despesas_extras):.2f}")
-with col3:
-    st.metric("💵 Lucro Líquido (Bolso)", f"R$ {lucro_liquido:.2f}", delta_color="normal")
+with col1: st.metric("Faturamento", f"R$ {total_fat:.2f}")
+with col2: st.metric("Gastos Extras", f"R$ {total_gastos:.2f}")
+with col3: st.metric("Lucro no Bolso", f"R$ {liquido:.2f}")
 
 st.markdown("---")
 
-# Tabelas Detalhadas
-col_E, col_D = st.columns(2)
-
-with col_E:
-    st.subheader("📋 Histórico de Vendas")
-    if not df_vendas.empty:
-        # Mostra as colunas novas (Cliente e Qtd)
-        colunas_para_mostrar = ["Hora", "Cliente", "Produto", "Qtd", "Venda", "Lucro", "Local"]
-        # Filtrar apenas as colunas que existem (para evitar erro se a tabela estiver vazia de campos)
-        st.dataframe(df_vendas[colunas_para_mostrar], use_container_width=True)
+c1, c2 = st.columns([2,1])
+with c1:
+    st.subheader("Histórico de Vendas")
+    if not df_v.empty:
+        # Mostrando o preço unitário que foi cobrado
+        st.dataframe(df_v[["Hora", "Cliente", "Produto", "Qtd", "Unitario", "Total"]], use_container_width=True)
     else:
-        st.info("Nenhuma venda hoje.")
+        st.info("Sem vendas.")
 
-with col_D:
-    st.subheader("💸 Gastos Extras")
-    if not df_despesas.empty:
-        st.dataframe(df_despesas, use_container_width=True)
-    else:
-        st.info("Nenhum gasto extra lançado.")
+with c2:
+    st.subheader("Gastos")
+    if not df_d.empty:
+        st.dataframe(df_d, use_container_width=True)
 
-st.markdown("---")
-
-# --- CÉREBRO DA IA ---
-if not df_vendas.empty:
-    st.header("🧠 Copie para o Especialista de Vendas")
+# --- IA ---
+if not df_v.empty:
+    st.markdown("---")
+    st.header("🧠 Análise")
+    txt_ia = f"""
+    Analise meu dia de vendas de Gás.
+    Faturamento: R$ {total_fat:.2f}
+    Lucro Líquido: R$ {liquido:.2f}
     
-    # Contagem de produtos vendidos
-    resumo_produtos = df_vendas["Produto"].value_counts().to_string()
+    VENDAS:
+    {df_v.to_string(index=False)}
     
-    prompt_ia = f"""
-    Aja como meu Gerente de Negócios. Aqui está o fechamento de hoje:
-    
-    FINANCEIRO:
-    - Faturamento Total: R$ {total_faturado:.2f}
-    - Custo das Mercadorias: R$ {total_custos_produtos:.2f}
-    - Despesas Operacionais: R$ {total_despesas_extras:.2f}
-    - LUCRO LÍQUIDO REAL: R$ {lucro_liquido:.2f}
-    
-    DETALHE DAS VENDAS (Com Clientes):
-    {df_vendas.to_string(index=False)}
-    
-    Analise e me diga:
-    1. Quem foi o melhor cliente do dia?
-    2. Minha margem de lucro hoje está saudável?
-    3. Pelo horário e local, qual a estratégia para amanhã?
+    Me dê dicas para aumentar o lucro amanhã.
     """
-    
-    st.text_area("Texto pronto para análise:", value=prompt_ia, height=250)
+    st.text_area("Copie para a IA:", value=txt_ia)
 
-
-               
+ 
+   
 
 
   
