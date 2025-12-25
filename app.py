@@ -1,18 +1,22 @@
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-# --- CONFIGURAÇÃO DE CUSTOS (Quanto você paga no produto) ---
-# Altere os valores abaixo conforme o seu custo real
+# ==========================================
+# 🔧 ÁREA DE CONFIGURAÇÃO (MECHA AQUI!)
+# ==========================================
+# Coloque aqui quanto VOCÊ paga no produto (Preço de Custo)
 CUSTOS_PRODUTOS = {
-    "Gás P13": 75.00,    # Exemplo: Você paga 75
-    "Água 20L": 6.00,    # Exemplo: Você paga 6
-    "Outros": 0.00       # Outros produtos
+    "Gás P13": 82.00    # <--- MUDE ESSE VALOR PARA O SEU CUSTO REAL
+    "Água 20L": 4.80,    # <--- MUDE ESSE VALOR PARA O CUSTO DA ÁGUA
+    "Outros": 0.00
 }
+# ==========================================
 
 # Configuração da página
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás & Clientes")
+st.title("🚀 Gestor Pronto Gás (Com Estoque)")
 
 # Inicializar banco de dados na sessão
 if 'vendas' not in st.session_state:
@@ -32,10 +36,15 @@ with st.sidebar:
             cliente_tel = st.text_input("WhatsApp/Telefone")
             
             st.markdown("### 🛒 Pedido")
-            # Lista de produtos baseada nos custos configurados
             produto_selecionado = st.selectbox("Produto", list(CUSTOS_PRODUTOS.keys()))
             
-            valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, step=1.0, value=110.0 if "Gás" in produto_selecionado else 12.0)
+            # NOVO: Campo de Quantidade
+            col_qtd, col_val = st.columns(2)
+            with col_qtd:
+                quantidade = st.number_input("Qtd", min_value=1, value=1, step=1)
+            with col_val:
+                valor_unitario = st.number_input("Valor Unitário (R$)", min_value=0.0, step=1.0, value=110.0 if "Gás" in produto_selecionado else 12.0)
+            
             pagamento = st.selectbox("Forma Pagamento", ["Dinheiro", "Pix", "Cartão", "Fiado"])
             endereco = st.text_input("Endereço/Bairro")
             obs = st.text_input("Obs (Ex: Deixar na portaria)")
@@ -46,23 +55,25 @@ with st.sidebar:
                 # Ajuste de Horário Brasil (-3h)
                 hora_brasil = datetime.now() - timedelta(hours=3)
                 
-                # Calcular Lucro Automaticamente
-                custo_produto = CUSTOS_PRODUTOS.get(produto_selecionado, 0.00)
-                lucro_venda = valor_venda - custo_produto
+                # CÁLCULOS AUTOMÁTICOS
+                custo_unitario = CUSTOS_PRODUTOS.get(produto_selecionado, 0.00)
+                
+                total_venda = valor_unitario * quantidade  # Preço x Quantidade
+                total_custo = custo_unitario * quantidade  # Custo x Quantidade
+                lucro_real = total_venda - total_custo
                 
                 st.session_state.vendas.append({
                     "Hora": hora_brasil.strftime("%H:%M"),
                     "Cliente": cliente_nome,
                     "Telefone": cliente_tel,
                     "Produto": produto_selecionado,
-                    "Valor Venda": valor_venda,
-                    "Custo": custo_produto,
-                    "Lucro Real": lucro_venda,
+                    "Qtd": quantidade,
+                    "Valor Total": total_venda,
+                    "Lucro Real": lucro_real,
                     "Pagamento": pagamento,
-                    "Local": endereco,
-                    "Obs": obs
+                    "Local": endereco
                 })
-                st.success(f"Venda para {cliente_nome} registrada! Lucro estimado: R$ {lucro_venda:.2f}")
+                st.success(f"Venda registrada! Total: R$ {total_venda:.2f} (Lucro: R$ {lucro_real:.2f})")
 
     elif tipo == "Despesa":
         with st.form("form_despesa"):
@@ -85,35 +96,31 @@ with st.sidebar:
 
 col1, col2, col3 = st.columns(3)
 
-# Converter dados
 df_vendas = pd.DataFrame(st.session_state.vendas)
 df_despesas = pd.DataFrame(st.session_state.despesas)
 
 # Cálculos Totais
-total_vendas = df_vendas["Valor Venda"].sum() if not df_vendas.empty else 0.0
+total_faturamento = df_vendas["Valor Total"].sum() if not df_vendas.empty else 0.0
 total_lucro_produtos = df_vendas["Lucro Real"].sum() if not df_vendas.empty else 0.0
 total_despesas_extras = df_despesas["Valor"].sum() if not df_despesas.empty else 0.0
 lucro_liquido_final = total_lucro_produtos - total_despesas_extras
 
 with col1:
-    st.metric("Faturamento (Bruto)", f"R$ {total_vendas:.2f}")
+    st.metric("Faturamento (Bruto)", f"R$ {total_faturamento:.2f}")
 with col2:
-    st.metric("Despesas do Dia", f"R$ {total_despesas_extras:.2f}")
+    st.metric("Despesas Extras", f"R$ {total_despesas_extras:.2f}")
 with col3:
-    # Mostra o lucro VERDADEIRO (Venda - Custo Produto - Despesas Extras)
     st.metric("Lucro Líquido Real", f"R$ {lucro_liquido_final:.2f}", delta_color="normal")
 
 st.markdown("---")
 
-# Tabelas Detalhadas
 tab1, tab2 = st.tabs(["📄 Histórico de Vendas", "📉 Despesas"])
 
 with tab1:
     if not df_vendas.empty:
         st.dataframe(df_vendas, use_container_width=True)
-        # Botão para baixar cadastro de clientes
         csv = df_vendas.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Baixar Planilha do Dia (Excel)", data=csv, file_name="vendas_hoje.csv", mime="text/csv")
+        st.download_button("📥 Baixar Planilha (Excel/CSV)", data=csv, file_name="vendas_hoje.csv", mime="text/csv")
     else:
         st.info("Nenhuma venda hoje.")
 
@@ -133,22 +140,25 @@ if not df_vendas.empty:
     Aja como meu Gerente Comercial. Aqui estão os dados de hoje:
     
     FINANCEIRO REAL:
-    - Vendeu: R$ {total_vendas:.2f}
-    - Custo Produtos: R$ {total_vendas - total_lucro_produtos:.2f}
-    - Despesas Extras: R$ {total_despesas_extras:.2f}
-    - DINHEIRO NO BOLSO (LUCRO): R$ {lucro_liquido_final:.2f}
+    - Faturamento Total: R$ {total_faturamento:.2f}
+    - Lucro Bruto (Vendas): R$ {total_lucro_produtos:.2f}
+    - Despesas Operacionais: R$ {total_despesas_extras:.2f}
+    - LUCRO LÍQUIDO FINAL: R$ {lucro_liquido_final:.2f}
     
-    CLIENTES ATENDIDOS HOJE:
-    {df_vendas[['Cliente', 'Telefone', 'Produto', 'Local']].to_string(index=False)}
+    VENDAS DETALHADAS:
+    {df_vendas[['Cliente', 'Produto', 'Qtd', 'Valor Total', 'Local']].to_string(index=False)}
     
     Analise e me diga:
-    1. Meu lucro real está saudável ou as despesas comeram tudo?
-    2. Com base na lista de clientes, quem eu devo fidelizar?
-    3. Qual a estratégia para amanhã?
+    1. O ticket médio e se houve vendas múltiplas (mais de 1 item).
+    2. Sugestões para vender mais para os mesmos clientes amanhã.
     """
     st.text_area("Copie para a IA:", value=prompt_ia, height=250)
+        
+    
 
-         
+
+  
+   
            
 
 
