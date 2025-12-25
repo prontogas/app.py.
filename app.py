@@ -19,17 +19,18 @@ CLIENTES_VIP = {
 }
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás (Corrigido)")
+st.title("🚀 Gestor Pronto Gás (Total Flex)")
 
 # Inicializar Sessão
 if 'vendas' not in st.session_state: st.session_state.vendas = []
 if 'despesas' not in st.session_state: st.session_state.despesas = []
 
-# Função para limpar os campos após salvar (Evita duplicidade)
+# Função de Limpeza
 def limpar_campos():
     st.session_state.temp_cliente = ""
     st.session_state.temp_obs = ""
-    st.session_state.temp_dinheiro = 0.0
+    # Resetar valores numéricos se possível
+    # (Streamlit recarrega o script, então o reset visual acontece no rerun)
 
 # --- BARRA LATERAL ---
 with st.sidebar:
@@ -52,20 +53,17 @@ with st.sidebar:
     st.header("📝 Novo Lançamento")
     tipo = st.radio("Tipo", ["Venda", "Despesa"])
 
-    # --- ÁREA DE VENDA (SEM FORMULÁRIO TRAVADO) ---
+    # --- ÁREA DE VENDA ---
     if tipo == "Venda":
-        st.markdown("### 👤 Dados do Pedido")
+        st.markdown("### 👤 Dados")
         
-        # Usamos 'key' para o sistema limpar depois
         cliente = st.text_input("Nome do Cliente", key="temp_cliente")
-        
         produto = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()))
         
-        # Preço Automático
+        # Preço
         preco_base = PRODUTOS_PADRAO[produto]["sugerido"]
         if cliente in CLIENTES_VIP and produto == "Gás P13":
             preco_base = CLIENTES_VIP[cliente]
-            st.caption(f"⭐ Preço VIP aplicado!")
         
         col_p, col_q = st.columns(2)
         preco_unit = col_p.number_input("Preço Unit.", value=float(preco_base), step=1.0)
@@ -73,7 +71,7 @@ with st.sidebar:
         
         total_venda = preco_unit * qtd
         
-        # Mostrador Grande de Valor
+        # Mostrador Grande
         st.markdown(f"""
         <div style="padding:10px; background-color:#2e7b53; border-radius:10px; text-align:center; margin-bottom:10px;">
             <h2 style="color:white; margin:0;">Total: R$ {total_venda:.2f}</h2>
@@ -81,31 +79,44 @@ with st.sidebar:
         """, unsafe_allow_html=True)
 
         st.markdown("### 💰 Pagamento")
-        forma_pag = st.selectbox("Forma de Pagamento", 
-                                 ["Dinheiro", "Pix", "Cartão", "Fiado", "MISTO (Dinheiro + Pix)"])
+        # Opções principais
+        modo_pag = st.selectbox("Modo de Pagamento", 
+                                ["Simples (Uma forma)", "COMBINADO (Duas formas)"])
         
-        texto_pagamento = forma_pag
-        
-        # --- LÓGICA DO MISTO (APARECE NA HORA) ---
-        pode_salvar = True # Trava de segurança
-        
-        if forma_pag == "MISTO (Dinheiro + Pix)":
-            val_dinheiro = st.number_input("Quanto recebeu em DINHEIRO?", min_value=0.0, step=1.0, key="temp_dinheiro")
-            val_pix = total_venda - val_dinheiro
+        texto_pagamento = ""
+        pode_salvar = True
+
+        if modo_pag == "Simples (Uma forma)":
+            forma = st.selectbox("Forma", ["Dinheiro", "Pix", "Cartão", "Fiado"])
+            texto_pagamento = forma
+
+        else: # MODO COMBINADO / MISTO
+            st.info("👇 Configure a divisão:")
+            c1, c2 = st.columns(2)
             
-            if val_pix < 0:
-                st.error("⚠️ Erro: O valor em dinheiro é maior que a venda!")
-                pode_salvar = False
-            else:
-                st.info(f"👉 Restante no Pix: **R$ {val_pix:.2f}**")
-                texto_pagamento = f"Din: {val_dinheiro:.0f} | Pix: {val_pix:.0f}"
+            with c1:
+                metodo1 = st.selectbox("1ª Parte (Entrada)", ["Dinheiro", "Pix", "Cartão"], key="m1")
+                val1 = st.number_input(f"Valor em {metodo1}", min_value=0.0, step=1.0, key="v1")
+            
+            with c2:
+                metodo2 = st.selectbox("2ª Parte (Restante)", ["Pix", "Cartão", "Fiado", "Dinheiro"], key="m2")
+                val2 = total_venda - val1
+                
+                if val2 < 0:
+                    st.error(f"⚠️ Passou do total!")
+                    pode_salvar = False
+                else:
+                    st.write(f"Falta em {metodo2}:")
+                    st.markdown(f"#### R$ {val2:.2f}")
+            
+            # Monta o texto que vai pro relatório (Ex: "Din: 50 | Pix: 55")
+            texto_pagamento = f"{metodo1}: {val1:.0f} | {metodo2}: {val2:.0f}"
 
         endereco = st.text_input("Endereço", key="temp_endereco")
         obs = st.text_input("Obs", key="temp_obs")
 
         st.markdown("---")
         
-        # BOTÃO DE SALVAR (Só faz algo se clicar AQUI)
         if st.button("✅ FINALIZAR VENDA", type="primary", use_container_width=True):
             if pode_salvar:
                 hora = datetime.now() - timedelta(hours=3)
@@ -123,11 +134,10 @@ with st.sidebar:
                     "Pagamento": texto_pagamento,
                     "Local": endereco
                 })
-                st.success("Venda registrada com sucesso!")
-                limpar_campos() # Limpa os campos para a próxima
-                st.rerun() # Atualiza a tabela
+                st.success("Venda registrada!")
+                limpar_campos()
+                st.rerun()
 
-    # --- ÁREA DE DESPESA (Pode manter formulário simples) ---
     elif tipo == "Despesa":
         with st.form("form_despesa", clear_on_submit=True):
             desc = st.text_input("Descrição")
@@ -204,12 +214,11 @@ if not df_v.empty:
     st.header("🧠 Análise")
     txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
     st.text_area("Copie para a IA:", value=txt)
+       
+     
 
-           
 
-   
-   
-  
+
 
                 
       
