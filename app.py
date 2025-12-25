@@ -1,4 +1,5 @@
-import streamlit as st
+
+  import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -18,25 +19,20 @@ CLIENTES_VIP = {
 }
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás (Blindado)")
+st.title("🚀 Gestor Pronto Gás (Modo Funcionário)")
 
 # Inicializar Sessão
 if 'vendas' not in st.session_state: st.session_state.vendas = []
 if 'despesas' not in st.session_state: st.session_state.despesas = []
 
-# --- 🧹 SISTEMA DE LIMPEZA INTELIGENTE (CORREÇÃO DO ERRO) ---
-# Isso roda ANTES de tudo para garantir que não dê erro
+# --- 🧹 SISTEMA DE LIMPEZA INTELIGENTE ---
 if 'limpar_agora' in st.session_state and st.session_state.limpar_agora:
-    # Reseta os campos textuais
     st.session_state.temp_cliente = ""
     st.session_state.temp_obs = ""
     st.session_state.temp_endereco = ""
-    # Reseta os valores numéricos do pagamento misto (se existirem)
     if 'v1' in st.session_state: st.session_state.v1 = 0.0
-    
-    # Desliga a limpeza e avisa que deu certo
     st.session_state.limpar_agora = False
-    st.toast("✅ Venda Salva e Campos Limpos!", icon="🎉")
+    st.toast("✅ Venda Salva!", icon="🎉")
 
 # --- BARRA LATERAL ---
 with st.sidebar:
@@ -56,6 +52,20 @@ with st.sidebar:
             st.error("Erro no arquivo.")
 
     st.markdown("---")
+    
+    # --- ÁREA DE SEGURANÇA (ADMIN) ---
+    st.header("🔐 Acesso Restrito")
+    modo_admin = st.checkbox("Sou o Dono (Ver Lucro)")
+    senha_ok = False
+    if modo_admin:
+        senha = st.text_input("Digite a Senha", type="password")
+        if senha == SENHA_ADMIN:
+            senha_ok = True
+            st.success("🔓 Acesso Total Liberado")
+        elif senha != "":
+            st.error("Senha Incorreta")
+    
+    st.markdown("---")
     st.header("📝 Novo Lançamento")
     tipo = st.radio("Tipo", ["Venda", "Despesa"])
 
@@ -63,11 +73,9 @@ with st.sidebar:
     if tipo == "Venda":
         st.markdown("### 👤 Dados")
         
-        # As chaves (keys) permitem que a gente limpe o campo depois
         cliente = st.text_input("Nome do Cliente", key="temp_cliente")
         produto = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()))
         
-        # Preço
         preco_base = PRODUTOS_PADRAO[produto]["sugerido"]
         if cliente in CLIENTES_VIP and produto == "Gás P13":
             preco_base = CLIENTES_VIP[cliente]
@@ -118,7 +126,6 @@ with st.sidebar:
 
         st.markdown("---")
         
-        # --- BOTÃO FINAL ---
         if st.button("✅ FINALIZAR VENDA", type="primary", use_container_width=True):
             if pode_salvar:
                 hora = datetime.now() - timedelta(hours=3)
@@ -137,9 +144,8 @@ with st.sidebar:
                     "Local": endereco
                 })
                 
-                # AQUI ESTÁ O SEGREDO: Apenas marcamos para limpar na próxima volta
                 st.session_state.limpar_agora = True 
-                st.rerun() # Recarrega a página
+                st.rerun()
 
     elif tipo == "Despesa":
         with st.form("form_despesa", clear_on_submit=True):
@@ -158,17 +164,6 @@ with st.sidebar:
                 st.success("Gasto Salvo!")
                 st.rerun()
 
-    # --- ADMIN ---
-    st.markdown("---")
-    st.header("🔐 Admin")
-    modo_admin = st.checkbox("Ativar Exclusão")
-    senha_ok = False
-    if modo_admin:
-        senha = st.text_input("Senha", type="password")
-        if senha == SENHA_ADMIN:
-            senha_ok = True
-            st.success("Liberado!")
-
 # --- PAINEL PRINCIPAL ---
 df_v = pd.DataFrame(st.session_state.vendas)
 df_d = pd.DataFrame(st.session_state.despesas)
@@ -177,10 +172,20 @@ fat = df_v["Total"].sum() if not df_v.empty else 0.0
 gastos = df_d["Valor"].sum() if not df_d.empty else 0.0
 lucro = (df_v["Lucro"].sum() if not df_v.empty else 0.0) - gastos
 
-c1, c2, c3 = st.columns(3)
-c1.metric("Faturamento", f"R$ {fat:.2f}")
-c2.metric("Gastos", f"R$ {gastos:.2f}")
-c3.metric("Lucro Líquido", f"R$ {lucro:.2f}")
+# --- EXIBIÇÃO INTELIGENTE (COM OU SEM LUCRO) ---
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("💰 Faturamento (Caixa)", f"R$ {fat:.2f}")
+with col2:
+    st.metric("💸 Gastos Extras", f"R$ {gastos:.2f}")
+
+with col3:
+    # SÓ MOSTRA O LUCRO SE A SENHA ESTIVER CERTA
+    if senha_ok:
+        st.metric("💵 Lucro Líquido", f"R$ {lucro:.2f}")
+    else:
+        st.metric("🔒 Lucro Líquido", "Restrito")
 
 st.markdown("---")
 
@@ -189,10 +194,17 @@ col_v, col_d = st.columns([2,1])
 with col_v:
     st.subheader("📋 Vendas do Dia")
     if not df_v.empty:
-        st.dataframe(df_v[["Hora", "Cliente", "Produto", "Total", "Pagamento"]], use_container_width=True)
+        # Define quais colunas mostrar
+        colunas_visiveis = ["Hora", "Cliente", "Produto", "Qtd", "Total", "Pagamento"]
+        
+        # Se for admin, adiciona a coluna Lucro
+        if senha_ok:
+            colunas_visiveis.append("Lucro")
+            
+        st.dataframe(df_v[colunas_visiveis], use_container_width=True)
         
         if senha_ok:
-            st.warning("⚠️ Apagar Venda")
+            st.warning("⚠️ Área de Exclusão (Admin)")
             id_apagar = st.number_input("Linha para apagar", min_value=0, max_value=len(df_v)-1, step=1)
             if st.button("🗑️ APAGAR VENDA"):
                 st.session_state.vendas.pop(id_apagar)
@@ -205,19 +217,25 @@ with col_d:
     if not df_d.empty:
         st.dataframe(df_d, use_container_width=True)
         if senha_ok:
-            st.warning("⚠️ Apagar Despesa")
+            st.warning("⚠️ Excluir Despesa")
             id_d_apagar = st.number_input("Linha Despesa", min_value=0, max_value=len(df_d)-1, step=1, key="del_d")
             if st.button("🗑️ APAGAR DESPESA"):
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
 
-# IA
-if not df_v.empty:
+# IA (Só mostra análise se tiver senha, pois pode conter dados sensíveis)
+if not df_v.empty and senha_ok:
     st.markdown("---")
-    st.header("🧠 Análise")
+    st.header("🧠 Análise do Dono")
     txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
     st.text_area("Copie para a IA:", value=txt)
-     
+elif not df_v.empty:
+    st.markdown("---")
+    st.info("🔒 Análise de IA oculta (Requer senha de Admin)")   
+               
+          
+
+
        
           
 
