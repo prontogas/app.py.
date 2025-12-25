@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
@@ -6,9 +5,9 @@ from datetime import datetime, timedelta
 # --- 🔧 ÁREA DE CONFIGURAÇÃO (MEXA AQUI!) ---
 # Coloque aqui quanto VOCÊ paga no produto (Preço de Custo)
 CUSTOS_PRODUTOS = {
-    "Gás P13": 82.00,     # <--- Mude esse valor para o seu custo real
-    "Água 20L": 4.80,     # <--- Mude esse valor para o seu custo real
-    "Outros": 0.00        # Produtos diversos
+    "Gás P13": 82.00,     
+    "Água 20L": 4.80,     
+    "Outros": 0.00        
 }
 # --------------------------------------------
 
@@ -29,33 +28,41 @@ with st.sidebar:
 
     if tipo == "Venda":
         with st.form("form_venda"):
-            # Caixa de seleção com seus produtos configurados
+            st.markdown("### Detalhes do Pedido")
+            cliente = st.text_input("Nome do Cliente") # <--- CAMPO NOVO
             produto_selecionado = st.selectbox("Produto", list(CUSTOS_PRODUTOS.keys()))
+            qtd = st.number_input("Quantidade", min_value=1, value=1, step=1) # <--- CAMPO NOVO
             
-            valor_venda = st.number_input("Valor da Venda (R$)", min_value=0.0, step=1.0, value=105.00)
+            st.markdown("### Financeiro")
+            # Atenção: Aqui você coloca o VALOR TOTAL que o cliente pagou
+            valor_venda = st.number_input("Valor TOTAL Recebido (R$)", min_value=0.0, step=1.0, value=105.00)
             pagamento = st.selectbox("Forma Pagamento", ["Dinheiro", "Pix", "Cartão", "Fiado"])
             endereco = st.text_input("Endereço/Bairro")
             obs = st.text_input("Obs (Ex: Cliente novo)")
             
             submitted = st.form_submit_button("Lançar Venda")
             if submitted:
-                # Pega a hora certa do Brasil (-3h)
+                # Ajuste de Fuso Horário (-3h para Brasil)
                 hora_brasil = datetime.now() - timedelta(hours=3)
                 
-                # Calcula o lucro unitário (Venda - Custo)
+                # CÁLCULOS AUTOMÁTICOS
                 custo_unitario = CUSTOS_PRODUTOS[produto_selecionado]
-                lucro_venda = valor_venda - custo_unitario
+                custo_total = custo_unitario * qtd  # Multiplica o custo pela quantidade
+                lucro_venda = valor_venda - custo_total
                 
                 st.session_state.vendas.append({
                     "Hora": hora_brasil.strftime("%H:%M"),
+                    "Cliente": cliente,
                     "Produto": produto_selecionado,
+                    "Qtd": qtd,
                     "Venda": valor_venda,
-                    "Custo": custo_unitario,
+                    "Custo": custo_total,
                     "Lucro": lucro_venda,
                     "Pagamento": pagamento,
-                    "Local": endereco
+                    "Local": endereco,
+                    "Obs": obs
                 })
-                st.success(f"Venda registrada! Lucro estimado: R$ {lucro_venda:.2f}")
+                st.success(f"Venda registrada! Lucro: R$ {lucro_venda:.2f}")
 
     elif tipo == "Despesa":
         st.info("Lance aqui gastos extras (Gasolina, Almoço, Panfletos)")
@@ -96,7 +103,6 @@ with col1:
 with col2:
     st.metric("📉 Custos + Despesas", f"R$ {(total_custos_produtos + total_despesas_extras):.2f}")
 with col3:
-    # Se o lucro for positivo fica verde, negativo fica vermelho
     st.metric("💵 Lucro Líquido (Bolso)", f"R$ {lucro_liquido:.2f}", delta_color="normal")
 
 st.markdown("---")
@@ -107,8 +113,10 @@ col_E, col_D = st.columns(2)
 with col_E:
     st.subheader("📋 Histórico de Vendas")
     if not df_vendas.empty:
-        # Mostra apenas as colunas principais para não poluir
-        st.dataframe(df_vendas[["Hora", "Produto", "Venda", "Lucro", "Local"]], use_container_width=True)
+        # Mostra as colunas novas (Cliente e Qtd)
+        colunas_para_mostrar = ["Hora", "Cliente", "Produto", "Qtd", "Venda", "Lucro", "Local"]
+        # Filtrar apenas as colunas que existem (para evitar erro se a tabela estiver vazia de campos)
+        st.dataframe(df_vendas[colunas_para_mostrar], use_container_width=True)
     else:
         st.info("Nenhuma venda hoje.")
 
@@ -134,27 +142,25 @@ if not df_vendas.empty:
     FINANCEIRO:
     - Faturamento Total: R$ {total_faturado:.2f}
     - Custo das Mercadorias: R$ {total_custos_produtos:.2f}
-    - Despesas Operacionais (Gasolina/Outros): R$ {total_despesas_extras:.2f}
+    - Despesas Operacionais: R$ {total_despesas_extras:.2f}
     - LUCRO LÍQUIDO REAL: R$ {lucro_liquido:.2f}
     
-    PRODUTOS VENDIDOS:
-    {resumo_produtos}
-    
-    DETALHE DAS VENDAS (Hora/Local):
+    DETALHE DAS VENDAS (Com Clientes):
     {df_vendas.to_string(index=False)}
     
     Analise e me diga:
-    1. Minha margem de lucro hoje está saudável?
-    2. Pelo horário e local das vendas, qual a melhor estratégia para amanhã?
+    1. Quem foi o melhor cliente do dia?
+    2. Minha margem de lucro hoje está saudável?
+    3. Pelo horário e local, qual a estratégia para amanhã?
     """
     
     st.text_area("Texto pronto para análise:", value=prompt_ia, height=250)
 
-              
+
+               
 
 
-   
-           
+  
 
 
 
