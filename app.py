@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 # --- 🔧 ÁREA DE CONFIGURAÇÃO (MEXA AQUI!) ---
 # Coloque aqui quanto VOCÊ paga no produto (Preço de Custo)
 CUSTOS_PRODUTOS = {
-    "Gás P13": 85.00,     # <--- Mude esse valor para o seu custo real
-    "Água 20L": 6.00,     # <--- Mude esse valor para o seu custo real
+    "Gás P13": 82.00,     # <--- Mude esse valor para o seu custo real
+    "Água 20L": 4.80,     # <--- Mude esse valor para o seu custo real
     "Outros": 0.00        # Produtos diversos
 }
 # --------------------------------------------
