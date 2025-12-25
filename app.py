@@ -230,10 +230,16 @@ with col_d:
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
 
+   
        
-    
-      
-                  
+
+        
+   
+                
+              
+            
+
+         
                     
    
 
