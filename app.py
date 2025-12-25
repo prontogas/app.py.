@@ -186,12 +186,11 @@ with st.sidebar:
                     if pag_texto in resumo_pag:
                         resumo_pag[pag_texto] += total_venda
 
-            # Mostrando os Cards Coloridos
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("💵 Dinheiro (Gaveta)", f"R$ {resumo_pag['Dinheiro']:.2f}")
-            k2.metric("🏦 Pix (Banco)", f"R$ {resumo_pag['Pix']:.2f}")
-            k3.metric("💳 Cartão", f"R$ {resumo_pag['Cartão']:.2f}")
-            k4.metric("📝 Fiado (Receber)", f"R$ {resumo_pag['Fiado']:.2f}")
+            # Mostrando os Cards Coloridos NA BARRA LATERAL
+            st.info(f"💵 Dinheiro: R$ {resumo_pag['Dinheiro']:.2f}")
+            st.info(f"🏦 Pix: R$ {resumo_pag['Pix']:.2f}")
+            st.info(f"💳 Cartão: R$ {resumo_pag['Cartão']:.2f}")
+            st.error(f"📝 Fiado: R$ {resumo_pag['Fiado']:.2f}")
             
             st.markdown("---")
             st.metric("💎 Lucro Líquido Real", f"R$ {lucro:.2f}")
@@ -231,8 +230,15 @@ with col_d:
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
 
-  
-     
+       
+    
+      
+                  
+                    
+   
+
+
+           
 
         
                   
