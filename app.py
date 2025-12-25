@@ -19,31 +19,29 @@ CLIENTES_VIP = {
 }
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás (Pagamento Flexível)")
+st.title("🚀 Gestor Pronto Gás (Ao Vivo)")
 
-# Inicializar Sessão
-if 'vendas' not in st.session_state:
-    st.session_state.vendas = []
-if 'despesas' not in st.session_state:
-    st.session_state.despesas = []
+# Inicializar Sessão e Chaves de Limpeza
+if 'vendas' not in st.session_state: st.session_state.vendas = []
+if 'despesas' not in st.session_state: st.session_state.despesas = []
+
+# Função para resetar campos após salvar
+def limpar_campos_venda():
+    st.session_state.input_cliente = ""
+    st.session_state.input_obs = ""
+    st.session_state.input_pagamento = "Dinheiro"
+    st.session_state.input_dinheiro_misto = 0.0
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("💾 Backup e Segurança")
+    st.header("💾 Backup de Segurança")
     
-    # 1. BAIXAR
     if len(st.session_state.vendas) > 0:
         df_export = pd.DataFrame(st.session_state.vendas)
         csv = df_export.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="⬇️ BAIXAR CÓPIA DO DIA",
-            data=csv,
-            file_name="vendas_hoje.csv",
-            mime="text/csv",
-        )
+        st.download_button("⬇️ BAIXAR CÓPIA DO DIA", csv, "vendas.csv", "text/csv")
     
-    # 2. CARREGAR
-    uploaded_file = st.file_uploader("📂 Carregar Cópia Salva", type="csv")
+    uploaded_file = st.file_uploader("📂 Carregar Cópia", type="csv")
     if uploaded_file is not None:
         try:
             df_import = pd.read_csv(uploaded_file)
@@ -57,81 +55,67 @@ with st.sidebar:
     tipo = st.radio("Tipo", ["Venda", "Despesa"])
 
     if tipo == "Venda":
-        with st.form("form_venda", clear_on_submit=True):
-            st.markdown("### 👤 Cliente & Produto")
-            cliente = st.text_input("Nome do Cliente")
-            if cliente in CLIENTES_VIP:
-                st.caption(f"⭐ VIP! Preço: R$ {CLIENTES_VIP[cliente]:.2f}")
+        st.markdown("### 👤 Cliente & Produto")
+        
+        # Campos "Ao Vivo" (Sem Formulário travando)
+        cliente = st.text_input("Nome do Cliente", key="input_cliente")
+        
+        if cliente in CLIENTES_VIP:
+            st.caption(f"⭐ VIP! Preço: R$ {CLIENTES_VIP[cliente]:.2f}")
 
-            produto = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()))
+        produto = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()), key="input_produto")
+        
+        # Preço Base
+        preco_base = PRODUTOS_PADRAO[produto]["sugerido"]
+        if cliente in CLIENTES_VIP and produto == "Gás P13":
+            preco_base = CLIENTES_VIP[cliente]
+        
+        col_p, col_q = st.columns(2)
+        preco_unit = col_p.number_input("Preço Unit.", value=float(preco_base), step=1.0)
+        qtd = col_q.number_input("Qtd", min_value=1, value=1, step=1)
+        
+        total_est = preco_unit * qtd
+        st.info(f"Total da Venda: R$ {total_est:.2f}")
+        
+        st.markdown("### 💰 Pagamento")
+        
+        # AQUI ESTÁ A MÁGICA: O campo aparece na hora!
+        forma_pag = st.selectbox("Forma de Pagamento", 
+                                 ["Dinheiro", "Pix", "Cartão", "Fiado", "MISTO (Dinheiro + Pix)"],
+                                 key="input_pagamento")
+        
+        texto_pagamento = forma_pag
+        
+        # Se escolheu MISTO, o campo aparece imediatamente
+        if forma_pag == "MISTO (Dinheiro + Pix)":
+            val_dinheiro = st.number_input("Quanto recebeu em DINHEIRO?", min_value=0.0, step=1.0, key="input_dinheiro_misto")
+            val_pix = total_est - val_dinheiro
+            st.write(f"👉 Falta passar no Pix: **R$ {val_pix:.2f}**")
+            texto_pagamento = f"Din: {val_dinheiro:.0f} | Pix: {val_pix:.0f}"
+
+        endereco = st.text_input("Endereço", key="input_endereco")
+        obs = st.text_input("Obs", key="input_obs")
+        
+        # Botão de Salvar Principal
+        if st.button("✅ SALVAR VENDA", type="primary"):
+            hora = datetime.now() - timedelta(hours=3)
+            custo = PRODUTOS_PADRAO[produto]["custo"] * qtd
+            lucro = total_est - custo
             
-            # Preço Base
-            preco_base = PRODUTOS_PADRAO[produto]["sugerido"]
-            if cliente in CLIENTES_VIP and produto == "Gás P13":
-                preco_base = CLIENTES_VIP[cliente]
-            
-            col_p, col_q = st.columns(2)
-            preco_unit = col_p.number_input("Preço Unit.", value=float(preco_base), step=1.0)
-            qtd = col_q.number_input("Qtd", min_value=1, value=1)
-            
-            total_est = preco_unit * qtd
-            st.info(f"Valor Total da Venda: R$ {total_est:.2f}")
-            
-            st.markdown("---")
-            st.markdown("### 💰 Forma de Pagamento")
-            
-            # Opções de pagamento
-            forma_pag = st.selectbox("Como o cliente pagou?", 
-                                     ["Dinheiro", "Pix", "Cartão", "Fiado", "MISTO / COMBINADO"])
-            
-            # --- LÓGICA DO PAGAMENTO MISTO (UNIVERSAL) ---
-            val_parte_1 = 0.0
-            tipo_1 = ""
-            tipo_2 = ""
-            
-            if forma_pag == "MISTO / COMBINADO":
-                st.write("🔀 **Configurar Divisão:**")
-                c_mix1, c_mix2 = st.columns(2)
-                
-                with c_mix1:
-                    tipo_1 = st.selectbox("1ª Parte (Entrada)", ["Dinheiro", "Pix", "Cartão", "Fiado"], key="t1")
-                    val_parte_1 = st.number_input(f"Valor em {tipo_1}", min_value=0.0, max_value=float(total_est), step=1.0)
-                
-                with c_mix2:
-                    # Calcula o resto sozinho
-                    resto = total_est - val_parte_1
-                    tipo_2 = st.selectbox("2ª Parte (Restante)", ["Pix", "Cartão", "Fiado", "Dinheiro"], key="t2")
-                    st.write(f"Falta pagar em {tipo_2}:")
-                    st.warning(f"R$ {resto:.2f}")
-            
-            endereco = st.text_input("Endereço")
-            
-            if st.form_submit_button("✅ SALVAR VENDA"):
-                hora = datetime.now() - timedelta(hours=3)
-                custo = PRODUTOS_PADRAO[produto]["custo"] * qtd
-                lucro = total_est - custo
-                
-                # Define o texto que vai salvar na tabela
-                texto_pagamento = forma_pag
-                
-                if forma_pag == "MISTO / COMBINADO":
-                    val_parte_2 = total_est - val_parte_1
-                    # Ex: "Din: 20 + Cartão: 85"
-                    texto_pagamento = f"{tipo_1}: {val_parte_1:.0f} + {tipo_2}: {val_parte_2:.0f}"
-                
-                st.session_state.vendas.append({
-                    "Hora": hora.strftime("%H:%M"),
-                    "Cliente": cliente,
-                    "Produto": produto,
-                    "Qtd": qtd,
-                    "Unitario": preco_unit,
-                    "Total": total_est,
-                    "Lucro": lucro,
-                    "Pagamento": texto_pagamento, # Salva o detalhe combinado
-                    "Local": endereco
-                })
-                st.success(f"Venda Salva! ({texto_pagamento})")
-                st.rerun()
+            st.session_state.vendas.append({
+                "Hora": hora.strftime("%H:%M"),
+                "Cliente": cliente,
+                "Produto": produto,
+                "Qtd": qtd,
+                "Unitario": preco_unit,
+                "Total": total_est,
+                "Lucro": lucro,
+                "Pagamento": texto_pagamento,
+                "Local": endereco
+            })
+            st.success(f"Venda Salva! ({texto_pagamento})")
+            limpar_campos_venda() # Limpa tudo para o próximo
+            st.rerun()
 
     elif tipo == "Despesa":
         with st.form("form_despesa", clear_on_submit=True):
@@ -153,15 +137,13 @@ with st.sidebar:
     # --- ADMIN ---
     st.markdown("---")
     st.header("🔐 Admin")
-    modo_admin = st.checkbox("Ativar Modo de Exclusão")
+    modo_admin = st.checkbox("Ativar Exclusão")
     senha_ok = False
     if modo_admin:
         senha = st.text_input("Senha", type="password")
         if senha == SENHA_ADMIN:
             senha_ok = True
             st.success("Liberado!")
-        elif senha != "":
-            st.error("Senha Incorreta")
 
 # --- PAINEL PRINCIPAL ---
 df_v = pd.DataFrame(st.session_state.vendas)
@@ -183,7 +165,6 @@ col_v, col_d = st.columns([2,1])
 with col_v:
     st.subheader("📋 Vendas")
     if not df_v.empty:
-        # Mostra o pagamento detalhado
         st.dataframe(df_v[["Hora", "Cliente", "Produto", "Total", "Pagamento"]], use_container_width=True)
         
         if senha_ok:
@@ -212,12 +193,11 @@ if not df_v.empty:
     st.header("🧠 Análise")
     txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
     st.text_area("Copie para a IA:", value=txt)
+ 
+               
 
-        
+      
 
-        
-                    
-                    
                 
       
 
