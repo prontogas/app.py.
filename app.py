@@ -33,7 +33,7 @@ if st.session_state.get('resetar_campos'):
     st.session_state.resetar_campos = False
     st.toast("✅ Salvo com Sucesso!", icon="🎉")
 
-# --- CÁLCULOS GERAIS (Ficam aqui para usar em todo lugar) ---
+# --- CÁLCULOS GERAIS ---
 df_v = pd.DataFrame(st.session_state.vendas)
 df_d = pd.DataFrame(st.session_state.despesas)
 
@@ -62,13 +62,11 @@ with st.sidebar:
     st.header("📝 Lançamentos")
     tipo = st.radio("Selecione:", ["Venda", "Despesa"])
 
-    # --- ÁREA DE VENDA ---
     if tipo == "Venda":
         st.markdown("### 👤 Dados")
         cliente = st.text_input("Cliente", key="temp_cliente")
         produto = st.selectbox("Produto", list(PRODUTOS_PADRAO.keys()))
         
-        # Preço
         preco_base = PRODUTOS_PADRAO[produto]["sugerido"]
         if cliente in CLIENTES_VIP and produto == "Gás P13":
             preco_base = CLIENTES_VIP[cliente]
@@ -79,7 +77,6 @@ with st.sidebar:
         
         total_venda = preco_unit * qtd
         
-        # Mostrador de Total
         st.markdown(f"""
         <div style="padding:10px; background-color:#2e7b53; border-radius:10px; text-align:center; margin-bottom:10px;">
             <h3 style="color:white; margin:0;">Total: R$ {total_venda:.2f}</h3>
@@ -163,16 +160,46 @@ with st.sidebar:
             senha_ok = True
             st.success("Acesso Liberado!")
             
-            # --- O LUCRO APARECE SÓ AQUI ---
-            st.markdown("### 💎 Resultado Financeiro")
-            col_lucro = st.columns(1)[0]
-            col_lucro.metric("Lucro Líquido Real", f"R$ {lucro:.2f}")
-            st.markdown("---")
-            # -------------------------------
+            # --- CÁLCULO DETALHADO POR FORMA DE PAGAMENTO ---
+            st.markdown("### 💵 Fechamento de Caixa")
+            
+            # Dicionário para somar
+            resumo_pag = {"Dinheiro": 0.0, "Pix": 0.0, "Cartão": 0.0, "Fiado": 0.0}
+            
+            # O Grande Loop que lê os textos misturados
+            for venda in st.session_state.vendas:
+                pag_texto = venda["Pagamento"]
+                total_venda = venda["Total"]
+                
+                if "|" in pag_texto: # Se for misto (Ex: "Dinheiro: 50 | Pix: 55")
+                    partes = pag_texto.split("|")
+                    for p in partes:
+                        try:
+                            tipo, valor = p.split(":")
+                            tipo = tipo.strip() # Remove espaços
+                            valor = float(valor)
+                            if tipo in resumo_pag:
+                                resumo_pag[tipo] += valor
+                        except:
+                            pass
+                else: # Se for simples (Ex: "Dinheiro")
+                    if pag_texto in resumo_pag:
+                        resumo_pag[pag_texto] += total_venda
 
-# --- PAINEL PRINCIPAL (PÚBLICO) ---
+            # Mostrando os Cards Coloridos
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("💵 Dinheiro (Gaveta)", f"R$ {resumo_pag['Dinheiro']:.2f}")
+            k2.metric("🏦 Pix (Banco)", f"R$ {resumo_pag['Pix']:.2f}")
+            k3.metric("💳 Cartão", f"R$ {resumo_pag['Cartão']:.2f}")
+            k4.metric("📝 Fiado (Receber)", f"R$ {resumo_pag['Fiado']:.2f}")
+            
+            st.markdown("---")
+            st.metric("💎 Lucro Líquido Real", f"R$ {lucro:.2f}")
+            st.markdown("---")
+
+# --- PAINEL PRINCIPAL ---
 c1, c2 = st.columns(2)
-c1.metric("💰 Faturamento (Caixa)", f"R$ {fat:.2f}")
+c1.metric("💰 Faturamento Total", f"R$ {fat:.2f}")
 c2.metric("💸 Gastos do Dia", f"R$ {gastos:.2f}")
 
 st.markdown("---")
@@ -182,7 +209,6 @@ col_v, col_d = st.columns([2,1])
 with col_v:
     st.subheader("📋 Vendas")
     if not df_v.empty:
-        # Tabela simplificada para o dia a dia
         st.dataframe(df_v[["Hora", "Cliente", "Produto", "Total", "Pagamento"]], use_container_width=True)
         
         if senha_ok:
@@ -205,12 +231,17 @@ with col_d:
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
 
-# IA (Só mostra se tiver senha ou se você quiser copiar no fim do dia)
-if not df_v.empty and senha_ok:
-    st.markdown("---")
-    st.header("🧠 Análise")
-    txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
-    st.text_area("Copie para a IA:", value=txt)
+  
+     
+
+        
+                  
+               
+            
+   
+          
+   
+
                  
 
     
