@@ -250,9 +250,12 @@ with col_d:
             if st.button("🗑️ APAGAR DESPESA", type="primary", use_container_width=True):
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
+        
+        
 
-      
-  
+        
+
+    
 
          
             
