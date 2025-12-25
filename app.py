@@ -19,20 +19,25 @@ CLIENTES_VIP = {
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
 
-# --- 🎨 ESTILO DOS BOTÕES GIGANTES ---
+# --- 🎨 ESTILO DOS BOTÕES (AGRESSIVO) ---
 st.markdown("""
 <style>
-    /* Aumenta a altura e a fonte de todos os botões */
-    div.stButton > button {
-        height: 60px;
-        font-size: 24px !important;
-        font-weight: bold;
+    /* Aumenta TODOS os botões do sistema na marra */
+    .stButton > button {
+        width: 100% !important;
+        height: 75px !important;     /* Altura do botão */
+        font-size: 28px !important;  /* Tamanho da letra */
+        font-weight: 900 !important; /* Negrito extra forte */
+        border-radius: 12px !important;
+        margin-top: 10px !important;
+        margin-bottom: 10px !important;
     }
-    /* Aumenta também o botão de formulário (Despesa) */
-    div.stForm > div > div > div > button {
-        height: 60px;
-        font-size: 24px !important;
-        font-weight: bold;
+    
+    /* Aumenta especificamente o botão dentro de formulários (Despesas) */
+    div[data-testid="stForm"] footer button {
+        width: 100% !important;
+        height: 75px !important;
+        font-size: 28px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -132,9 +137,9 @@ with st.sidebar:
 
         endereco = st.text_input("Endereço", key="temp_endereco")
         obs = st.text_input("Obs", key="temp_obs")
-        
+
         st.markdown("---")
-        # BOTÃO DE VENDA GIGANTE
+        # --- BOTÃO FINAL COM CLASSE PRIMÁRIA ---
         if st.button("✅ FINALIZAR VENDA", type="primary", use_container_width=True):
             if pode_salvar:
                 hora = datetime.now() - timedelta(hours=3)
@@ -161,7 +166,7 @@ with st.sidebar:
             valor = st.number_input("Valor (R$)", min_value=0.0)
             cat = st.selectbox("Categoria", ["Gasolina", "Alimentação", "Outros"])
             
-            # BOTÃO DE DESPESA GIGANTE
+            # Botão de Despesa também vai ficar grande
             if st.form_submit_button("💾 SALVAR GASTO", use_container_width=True):
                 hora = datetime.now() - timedelta(hours=3)
                 st.session_state.despesas.append({
@@ -207,6 +212,7 @@ with st.sidebar:
                     if pag_texto in resumo_pag:
                         resumo_pag[pag_texto] += total_venda
 
+            # EXIBIÇÃO NO ADMIN
             st.info(f"💵 Dinheiro: R$ {resumo_pag['Dinheiro']:.2f}")
             st.info(f"🏦 Pix: R$ {resumo_pag['Pix']:.2f}")
             st.info(f"💳 Cartão: R$ {resumo_pag['Cartão']:.2f}")
@@ -232,7 +238,7 @@ with col_v:
         if senha_ok:
             st.warning("⚠️ Excluir Venda")
             id_apagar = st.number_input("Linha para apagar", min_value=0, max_value=len(df_v)-1, step=1)
-            # BOTÃO DE APAGAR GIGANTE
+            # Botão de Apagar também fica grande
             if st.button("🗑️ APAGAR VENDA", type="primary", use_container_width=True):
                 st.session_state.vendas.pop(id_apagar)
                 st.rerun()
@@ -246,13 +252,20 @@ with col_d:
         if senha_ok:
             st.warning("⚠️ Excluir Despesa")
             id_d_apagar = st.number_input("Linha Despesa", min_value=0, max_value=len(df_d)-1, step=1, key="del_d")
-            # BOTÃO DE APAGAR GIGANTE
+            # Botão de Apagar também fica grande
             if st.button("🗑️ APAGAR DESPESA", type="primary", use_container_width=True):
                 st.session_state.despesas.pop(id_d_apagar)
                 st.rerun()
-        
-        
 
+
+
+
+       
+        
+       
+                           
+
+         
         
 
     
