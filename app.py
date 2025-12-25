@@ -1,4 +1,7 @@
-import streamlit as st
+
+
+        
+  import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import io
@@ -19,7 +22,7 @@ CLIENTES_VIP = {
 }
 
 st.set_page_config(page_title="Gestor Pronto Gás", layout="wide")
-st.title("🚀 Gestor Pronto Gás (Pagamento Misto)")
+st.title("🚀 Gestor Pronto Gás (Pagamento Flexível)")
 
 # Inicializar Sessão
 if 'vendas' not in st.session_state:
@@ -29,7 +32,7 @@ if 'despesas' not in st.session_state:
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("💾 Sistema de Backup")
+    st.header("💾 Backup e Segurança")
     
     # 1. BAIXAR
     if len(st.session_state.vendas) > 0:
@@ -75,17 +78,34 @@ with st.sidebar:
             qtd = col_q.number_input("Qtd", min_value=1, value=1)
             
             total_est = preco_unit * qtd
-            st.info(f"Total da Venda: R$ {total_est:.2f}")
+            st.info(f"Valor Total da Venda: R$ {total_est:.2f}")
             
             st.markdown("---")
-            st.markdown("### 💰 Pagamento")
+            st.markdown("### 💰 Forma de Pagamento")
             
-            # --- LÓGICA DE PAGAMENTO MISTO ---
-            forma_pag = st.selectbox("Forma de Pagamento", 
-                                     ["Dinheiro", "Pix", "Cartão", "Fiado", "MISTO (Dinheiro + Pix)"])
+            # Opções de pagamento
+            forma_pag = st.selectbox("Como o cliente pagou?", 
+                                     ["Dinheiro", "Pix", "Cartão", "Fiado", "MISTO / COMBINADO"])
             
-            st.caption("👇 Preencha abaixo APENAS se escolheu MISTO")
-            val_dinheiro_misto = st.number_input("Valor pago em DINHEIRO:", min_value=0.0, step=1.0)
+            # --- LÓGICA DO PAGAMENTO MISTO (UNIVERSAL) ---
+            val_parte_1 = 0.0
+            tipo_1 = ""
+            tipo_2 = ""
+            
+            if forma_pag == "MISTO / COMBINADO":
+                st.write("🔀 **Configurar Divisão:**")
+                c_mix1, c_mix2 = st.columns(2)
+                
+                with c_mix1:
+                    tipo_1 = st.selectbox("1ª Parte (Entrada)", ["Dinheiro", "Pix", "Cartão", "Fiado"], key="t1")
+                    val_parte_1 = st.number_input(f"Valor em {tipo_1}", min_value=0.0, max_value=float(total_est), step=1.0)
+                
+                with c_mix2:
+                    # Calcula o resto sozinho
+                    resto = total_est - val_parte_1
+                    tipo_2 = st.selectbox("2ª Parte (Restante)", ["Pix", "Cartão", "Fiado", "Dinheiro"], key="t2")
+                    st.write(f"Falta pagar em {tipo_2}:")
+                    st.warning(f"R$ {resto:.2f}")
             
             endereco = st.text_input("Endereço")
             
@@ -94,107 +114,18 @@ with st.sidebar:
                 custo = PRODUTOS_PADRAO[produto]["custo"] * qtd
                 lucro = total_est - custo
                 
-                # Define o que vai escrito na tabela
+                # Define o texto que vai salvar na tabela
                 texto_pagamento = forma_pag
                 
-                # Se for misto, faz a conta e salva detalhado
-                if forma_pag == "MISTO (Dinheiro + Pix)":
-                    val_pix = total_est - val_dinheiro_misto
-                    texto_pagamento = f"Din: {val_dinheiro_misto:.0f} | Pix: {val_pix:.0f}"
+                if forma_pag == "MISTO / COMBINADO":
+                    val_parte_2 = total_est - val_parte_1
+                    # Ex: "Din: 20 + Cartão: 85"
+                    texto_pagamento =       
+                    
                 
-                st.session_state.vendas.append({
-                    "Hora": hora.strftime("%H:%M"),
-                    "Cliente": cliente,
-                    "Produto": produto,
-                    "Qtd": qtd,
-                    "Unitario": preco_unit,
-                    "Total": total_est,
-                    "Lucro": lucro,
-                    "Pagamento": texto_pagamento, # Salva o detalhe aqui
-                    "Local": endereco
-                })
-                st.success(f"Venda Salva! ({texto_pagamento})")
-                st.rerun()
+      
 
-    elif tipo == "Despesa":
-        with st.form("form_despesa", clear_on_submit=True):
-            desc = st.text_input("Descrição")
-            valor = st.number_input("Valor (R$)", min_value=0.0)
-            cat = st.selectbox("Categoria", ["Gasolina", "Alimentação", "Outros"])
-            
-            if st.form_submit_button("SALVAR DESPESA"):
-                hora = datetime.now() - timedelta(hours=3)
-                st.session_state.despesas.append({
-                    "Hora": hora.strftime("%H:%M"),
-                    "Descrição": desc,
-                    "Valor": valor,
-                    "Categoria": cat
-                })
-                st.success("Gasto Salvo!")
-                st.rerun()
-
-    # --- ADMIN ---
-    st.markdown("---")
-    st.header("🔐 Admin")
-    modo_admin = st.checkbox("Ativar Modo de Exclusão")
-    senha_ok = False
-    if modo_admin:
-        senha = st.text_input("Senha", type="password")
-        if senha == SENHA_ADMIN:
-            senha_ok = True
-            st.success("Liberado!")
-        elif senha != "":
-            st.error("Senha Incorreta")
-
-# --- PAINEL PRINCIPAL ---
-df_v = pd.DataFrame(st.session_state.vendas)
-df_d = pd.DataFrame(st.session_state.despesas)
-
-fat = df_v["Total"].sum() if not df_v.empty else 0.0
-gastos = df_d["Valor"].sum() if not df_d.empty else 0.0
-lucro = (df_v["Lucro"].sum() if not df_v.empty else 0.0) - gastos
-
-c1, c2, c3 = st.columns(3)
-c1.metric("Faturamento", f"R$ {fat:.2f}")
-c2.metric("Gastos", f"R$ {gastos:.2f}")
-c3.metric("Lucro Líquido", f"R$ {lucro:.2f}")
-
-st.markdown("---")
-
-col_v, col_d = st.columns([2,1])
-
-with col_v:
-    st.subheader("📋 Vendas")
-    if not df_v.empty:
-        # Mostra o pagamento detalhado
-        st.dataframe(df_v[["Hora", "Cliente", "Produto", "Total", "Pagamento"]], use_container_width=True)
-        
-        if senha_ok:
-            st.warning("⚠️ Excluir Venda")
-            id_apagar = st.number_input("Linha para apagar", min_value=0, max_value=len(df_v)-1, step=1)
-            if st.button("🗑️ APAGAR VENDA"):
-                st.session_state.vendas.pop(id_apagar)
-                st.rerun()
-    else:
-        st.info("Nenhuma venda.")
-
-with col_d:
-    st.subheader("💸 Despesas")
-    if not df_d.empty:
-        st.dataframe(df_d, use_container_width=True)
-        if senha_ok:
-            st.warning("⚠️ Excluir Despesa")
-            id_d_apagar = st.number_input("Linha Despesa", min_value=0, max_value=len(df_d)-1, step=1, key="del_d")
-            if st.button("🗑️ APAGAR DESPESA"):
-                st.session_state.despesas.pop(id_d_apagar)
-                st.rerun()
-
-# IA
-if not df_v.empty:
-    st.markdown("---")
-    st.header("🧠 Análise")
-    txt = f"Fat: {fat}, Lucro: {lucro}. Vendas: {df_v.to_string(index=False)}"
-    st.text_area("Copie para a IA:", value=txt)
+   
             
                     
   
