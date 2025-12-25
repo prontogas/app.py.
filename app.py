@@ -1,5 +1,5 @@
 
-  import streamlit as st
+ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
@@ -231,10 +231,18 @@ if not df_v.empty and senha_ok:
     st.text_area("Copie para a IA:", value=txt)
 elif not df_v.empty:
     st.markdown("---")
-    st.info("🔒 Análise de IA oculta (Requer senha de Admin)")   
-               
-          
+    st.info("🔒 Análise de IA oculta (Requer senha de Admin)")
 
+    
+      
+        
+      
+           
+               
+              
+              
+   
+       
 
        
           
